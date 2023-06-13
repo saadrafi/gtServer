@@ -29,6 +29,7 @@ async function run() {
 
     const usersCollection = client.db("globalDB").collection("usersCollection");
     const classCollection = client.db("globalDB").collection("classCollection");
+    const selectClassCollection = client.db("globalDB").collection("selectClassCollection");
 
     app.post("/users", async (req, res) => {
       const newUser = req.body;
@@ -133,6 +134,23 @@ async function run() {
         },
       };
       const result = await classCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    // api to save selected class data
+    app.post("/selectClass", async (req, res) => {
+      const newClass = req.body;
+      const query = {
+        userEmail: newClass.userEmail,
+        classId: newClass.classId,
+      };
+      const selectedClass = await selectClassCollection.findOne(query);
+      if (selectedClass) {
+        res.send({ error: true, message: "class already added " });
+        return;
+      }
+      const result = await selectClassCollection.insertOne(newClass);
+      console.log("got new class", req.body);
       res.send(result);
     });
 
