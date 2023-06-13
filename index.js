@@ -154,6 +154,16 @@ async function run() {
       res.send(result);
     });
 
+    // api to get all selected class data
+    app.get("/selectClass", async (req, res) => {
+      const query = req.query.email;
+      if (query) {
+        const selectedClass = await selectClassCollection.find({ userEmail: query }).toArray();
+        res.send(selectedClass);
+        return;
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
