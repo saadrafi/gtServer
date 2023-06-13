@@ -42,6 +42,18 @@ async function run() {
       res.send(result);
     });
 
+    // api to get the user role by user email
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      
+      if (email) {
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        const role = user?.role;
+        res.send({ role: role });
+      }
+    });
+
    
 
     // Send a ping to confirm a successful connection
