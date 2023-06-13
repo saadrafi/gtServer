@@ -95,7 +95,15 @@ async function run() {
 
     // api to get all class information
     app.get("/class", async (req, res) => {
-      const classes = await classCollection.find({}).toArray();
+      const status = req.query.status;
+      const query = {};
+      if (status) {
+        const classes = await classCollection.find({ status: status }).toArray();
+        res.send(classes);
+        return;
+      }
+
+      const classes = await classCollection.find(query).toArray();
       res.send(classes);
     });
 
