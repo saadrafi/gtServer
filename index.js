@@ -45,7 +45,7 @@ async function run() {
     // api to get the user role by user email
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
-      
+
       if (email) {
         const query = { email: email };
         const user = await usersCollection.findOne(query);
@@ -54,7 +54,13 @@ async function run() {
       }
     });
 
-   
+    // api to get all the users
+    app.get("/users", async (req, res) => {
+      const users = await usersCollection.find({}).toArray();
+      res.send(users);
+    });
+
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
