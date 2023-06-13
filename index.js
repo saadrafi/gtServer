@@ -57,6 +57,15 @@ async function run() {
 
     // api to get all the users
     app.get("/users", async (req, res) => {
+      const query = req.query.role;
+
+      console.log(query);
+      if (query) {
+        const users = await usersCollection.find({ role: query }).toArray();
+        res.send(users);
+        return;
+      }
+
       const users = await usersCollection.find({}).toArray();
       res.send(users);
     });
@@ -108,13 +117,11 @@ async function run() {
     app.put("/class/:id", async (req, res) => {
       const id = req.params.id;
       const updateClass = req.body;
+      console.log(updateClass);
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
-          className: updateClass.className,
-          classImage: updateClass.classImage,
-          price: updateClass.price,
-          availableSeat: updateClass.availableSeat,
+          ...updateClass,
         },
       };
       const result = await classCollection.updateOne(query, updateDoc);
