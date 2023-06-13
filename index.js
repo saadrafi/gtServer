@@ -27,7 +27,22 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-  
+    const usersCollection = client.db("globalDB").collection("usersCollection");
+
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      //   find the user in database
+      const user = await usersCollection.findOne({ email: newUser.email });
+      if (user) {
+        res.send({ error: true, message: "user already exist " });
+        return;
+      }
+      const result = await usersCollection.insertOne(newUser);
+      console.log("got new user", req.body);
+      res.send(result);
+    });
+
+   
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
