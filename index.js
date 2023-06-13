@@ -60,7 +60,20 @@ async function run() {
       res.send(users);
     });
 
-    
+    // api to update the user role
+    app.put("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const role = req.body.role;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: role,
+        },
+      };
+      const result = await usersCollection.updateOne(query, updateDoc);
+
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
