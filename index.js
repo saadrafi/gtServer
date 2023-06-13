@@ -90,12 +90,36 @@ async function run() {
       res.send(classes);
     });
 
-    app.get("/class/:id",async(req,res)=>{
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await classCollection.findOne(query);
-        res.send(result);
-    }) 
+    app.get("/classes/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { instructorEmail: email };
+      const classes = await classCollection.find(query).toArray();
+      res.send(classes);
+    });
+
+    app.get("/class/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await classCollection.findOne(query);
+      res.send(result);
+    });
+
+    // api to update class information by id
+    app.put("/class/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateClass = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          className: updateClass.className,
+          classImage: updateClass.classImage,
+          price: updateClass.price,
+          availableSeat: updateClass.availableSeat,
+        },
+      };
+      const result = await classCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
