@@ -28,6 +28,7 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db("globalDB").collection("usersCollection");
+    const classCollection = client.db("globalDB").collection("classCollection");
 
     app.post("/users", async (req, res) => {
       const newUser = req.body;
@@ -72,6 +73,14 @@ async function run() {
       };
       const result = await usersCollection.updateOne(query, updateDoc);
 
+      res.send(result);
+    });
+
+    // api to save class information
+    app.post("/class", async (req, res) => {
+      const newClass = req.body;
+      const result = await classCollection.insertOne(newClass);
+      console.log("got new class", req.body);
       res.send(result);
     });
 
