@@ -6,6 +6,8 @@ require("dotenv").config();
 const port = process.env.PORT || 3000;
 const app = express();
 
+const stripe = require("stripe")(process.env.STRIPE_KEY);
+
 // middlewire
 app.use(cors());
 app.use(express.json());
@@ -29,6 +31,7 @@ async function run() {
 
     const usersCollection = client.db("globalDB").collection("usersCollection");
     const classCollection = client.db("globalDB").collection("classCollection");
+    const paymentCollection = client.db("globalDB").collection("paymentCollection");
     const selectClassCollection = client.db("globalDB").collection("selectClassCollection");
 
     app.post("/users", async (req, res) => {
@@ -145,8 +148,11 @@ async function run() {
         classId: newClass.classId,
       };
       const selectedClass = await selectClassCollection.findOne(query);
-      if (selectedClass) {
-        res.send({ error: true, message: "class already added " });
+      const enrolled = await paymentCollection.findOne(query);
+      if (selectedClass || enrolled) {
+        selectedClass
+          ? res.send({ error: true, message: "class already added " })
+          : res.send({ error: true, message: "class already enrolled " });
         return;
       }
       const result = await selectClassCollection.insertOne(newClass);
@@ -164,11 +170,62 @@ async function run() {
       }
     });
 
+    // api to get particular select class data by id
+    app.get("/selectClass/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await selectClassCollection.findOne(query);
+      res.send(result);
+    });
+
+    // api to update selected class enrolledStudent and availableSeat by id
+    app.put("/selectClass/:id", async (req, res) => {
+      const id = req.params.id;
+      const classData = await classCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      const enrolledStudent = classData.enrolledStudent;
+      const availableSeat = classData.availableSeat;
+      const query = { _id: new ObjectId(id) };
+      const updatedoc = {
+        $set: {
+          enrolledStudent: enrolledStudent + 1,
+          availableSeat: availableSeat - 1,
+        },
+      };
+      const result = await classCollection.updateOne(query, updatedoc);
+      res.send(result);
+    });
+
     // api to delete selected class data
     app.delete("/selectClass/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await selectClassCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // api to create payment-intent
+    app.post("/payment", async (req, res) => {
+      const { amount } = req.body;
+      const price = amount * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: price,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // api to save payment data
+    app.post("/paymentSuccess", async (req, res) => {
+      const newPayment = req.body;
+      const result = await paymentCollection.insertOne(newPayment);
+      console.log("got new payment", req.body);
       res.send(result);
     });
 
