@@ -16,7 +16,6 @@ app.use(morgan("dev"));
 
 const verifyJwt = (req, res, next) => {
   const token = req.headers.authorization;
-  console.log("token:", token);
   if (!token) {
     res.status(401).send({ message: "Unauthorized  no token" });
     return;
@@ -26,7 +25,6 @@ const verifyJwt = (req, res, next) => {
       res.status(401).send({ message: "Unauthorized verify problem" });
       return;
     }
-    console.log("decodeemail:", decoded.email);
     req.decoded = decoded;
     next();
   });
@@ -55,13 +53,39 @@ async function run() {
     const paymentCollection = client.db("globalDB").collection("paymentCollection");
     const selectClassCollection = client.db("globalDB").collection("selectClassCollection");
 
+    const quizCollection = client.db("globalDB").collection("quizCollection");
+
     // jwt token sign in
     app.post("/jwt", async (req, res) => {
       user = req.body;
-      console.log(user);
       const token = await jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: "1h" });
-      console.log(token);
       res.send({ token });
+    });
+
+    // api to get 6 instructor
+    app.get("/instructors", async (req, res) => {
+      const instructors = await usersCollection.find({ role: "instructor" }).limit(6).toArray();
+      res.send(instructors);
+    });
+
+    // api to get 6 classes based on the enrolled
+    app.get("/topClasses", async (req, res) => {
+      const classes = await classCollection
+        .find({
+          enrolledStudent: {
+            $gt: 0,
+          },
+        })
+        .limit(6)
+        .toArray();
+      res.send(classes);
+    });
+
+    // api to get quiz data
+
+    app.get("/quiz", async (req, res) => {
+      const quiz = await quizCollection.aggregate([{ $sample: { size: 5 } }]).toArray();
+      res.send(quiz);
     });
 
     app.post("/users", async (req, res) => {
@@ -73,7 +97,6 @@ async function run() {
         return;
       }
       const result = await usersCollection.insertOne(newUser);
-      console.log("got new user", req.body);
       res.send(result);
     });
 
@@ -90,10 +113,9 @@ async function run() {
     });
 
     // api to get all the users
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyJwt, async (req, res) => {
       const query = req.query.role;
 
-      console.log(query);
       if (query) {
         const users = await usersCollection.find({ role: query }).toArray();
         res.send(users);
@@ -105,7 +127,7 @@ async function run() {
     });
 
     // api to update the user role
-    app.put("/users/:id", async (req, res) => {
+    app.put("/users/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const role = req.body.role;
       const query = { _id: new ObjectId(id) };
@@ -120,15 +142,14 @@ async function run() {
     });
 
     // api to save class information
-    app.post("/class", async (req, res) => {
+    app.post("/class", verifyJwt, async (req, res) => {
       const newClass = req.body;
       const result = await classCollection.insertOne(newClass);
-      console.log("got new class", req.body);
       res.send(result);
     });
 
     // api to get all class information
-    app.get("/class", async (req, res) => {
+    app.get("/class", verifyJwt, async (req, res) => {
       const status = req.query.status;
       const query = {};
       if (status) {
@@ -141,14 +162,14 @@ async function run() {
       res.send(classes);
     });
 
-    app.get("/classes/:email", async (req, res) => {
+    app.get("/classes/:email", verifyJwt, async (req, res) => {
       const email = req.params.email;
       const query = { instructorEmail: email };
       const classes = await classCollection.find(query).toArray();
       res.send(classes);
     });
 
-    app.get("/class/:id", async (req, res) => {
+    app.get("/class/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await classCollection.findOne(query);
@@ -156,10 +177,9 @@ async function run() {
     });
 
     // api to update class information by id
-    app.put("/class/:id", async (req, res) => {
+    app.put("/class/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const updateClass = req.body;
-      console.log(updateClass);
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
@@ -171,7 +191,7 @@ async function run() {
     });
 
     // api to save selected class data
-    app.post("/selectClass", async (req, res) => {
+    app.post("/selectClass", verifyJwt, async (req, res) => {
       const newClass = req.body;
       const query = {
         userEmail: newClass.userEmail,
@@ -186,7 +206,6 @@ async function run() {
         return;
       }
       const result = await selectClassCollection.insertOne(newClass);
-      console.log("got new class", req.body);
       res.send(result);
     });
 
@@ -205,7 +224,7 @@ async function run() {
     });
 
     // api to get particular select class data by id
-    app.get("/selectClass/:id", async (req, res) => {
+    app.get("/selectClass/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await selectClassCollection.findOne(query);
@@ -213,7 +232,7 @@ async function run() {
     });
 
     // api to update selected class enrolledStudent and availableSeat by id
-    app.put("/selectClass/:id", async (req, res) => {
+    app.put("/selectClass/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const classData = await classCollection.findOne({
         _id: new ObjectId(id),
@@ -232,7 +251,7 @@ async function run() {
     });
 
     // api to delete selected class data
-    app.delete("/selectClass/:id", async (req, res) => {
+    app.delete("/selectClass/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await selectClassCollection.deleteOne(query);
@@ -240,7 +259,7 @@ async function run() {
     });
 
     // api to create payment-intent
-    app.post("/payment", async (req, res) => {
+    app.post("/payment", verifyJwt, async (req, res) => {
       const { amount } = req.body;
       const price = amount * 100;
       const paymentIntent = await stripe.paymentIntents.create({
@@ -259,7 +278,6 @@ async function run() {
     app.post("/paymentSuccess", async (req, res) => {
       const newPayment = req.body;
       const result = await paymentCollection.insertOne(newPayment);
-      console.log("got new payment", req.body);
       res.send(result);
     });
 
@@ -281,7 +299,6 @@ async function run() {
     });
     app.get("/payments", verifyJwt, async (req, res) => {
       const query = req.query.email;
-      console.log("decoded:", query);
 
       if (query) {
         const result = await paymentCollection
