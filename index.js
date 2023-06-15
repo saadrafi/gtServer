@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 3000;
 const app = express();
@@ -13,7 +14,27 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wqecfea.mongodb.net/?retryWrites=true&w=majority`;
+const verifyJwt = (req, res, next) => {
+  const token = req.headers.authorization;
+  console.log("token:", token);
+  if (!token) {
+    res.status(401).send({ message: "Unauthorized  no token" });
+    return;
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN, (error, decoded) => {
+    if (error) {
+      res.status(401).send({ message: "Unauthorized verify problem" });
+      return;
+    }
+    console.log("decodeemail:", decoded.email);
+    req.decoded = decoded;
+    next();
+  });
+};
+
+const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-avolrex-shard-00-00.wqecfea.mongodb.net:27017,ac-avolrex-shard-00-01.wqecfea.mongodb.net:27017,ac-avolrex-shard-00-02.wqecfea.mongodb.net:27017/?ssl=true&replicaSet=atlas-eirl29-shard-0&authSource=admin&retryWrites=true&w=majority`;
+
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wqecfea.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -33,6 +54,15 @@ async function run() {
     const classCollection = client.db("globalDB").collection("classCollection");
     const paymentCollection = client.db("globalDB").collection("paymentCollection");
     const selectClassCollection = client.db("globalDB").collection("selectClassCollection");
+
+    // jwt token sign in
+    app.post("/jwt", async (req, res) => {
+      user = req.body;
+      console.log(user);
+      const token = await jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: "1h" });
+      console.log(token);
+      res.send({ token });
+    });
 
     app.post("/users", async (req, res) => {
       const newUser = req.body;
@@ -161,8 +191,12 @@ async function run() {
     });
 
     // api to get all selected class data
-    app.get("/selectClass", async (req, res) => {
+    app.get("/selectClass", verifyJwt, async (req, res) => {
       const query = req.query.email;
+      if (req.decoded.email !== query) {
+        res.status(403).send({ error: true, message: "forbidden" });
+        return;
+      }
       if (query) {
         const selectedClass = await selectClassCollection.find({ userEmail: query }).toArray();
         res.send(selectedClass);
@@ -227,6 +261,37 @@ async function run() {
       const result = await paymentCollection.insertOne(newPayment);
       console.log("got new payment", req.body);
       res.send(result);
+    });
+
+    // api to get payment data by email
+    app.get("/enrolled", verifyJwt, async (req, res) => {
+      const query = req.query.email;
+      if (req.decoded.email !== query) {
+        res.status(403).send({ error: true, message: "forbidden" });
+        return;
+      }
+      if (query) {
+        const result = await paymentCollection
+          .find({
+            userEmail: query,
+          })
+          .toArray();
+        res.send(result);
+      }
+    });
+    app.get("/payments", verifyJwt, async (req, res) => {
+      const query = req.query.email;
+      console.log("decoded:", query);
+
+      if (query) {
+        const result = await paymentCollection
+          .find({
+            userEmail: query,
+          })
+          .sort({ date: -1 })
+          .toArray();
+        res.send(result);
+      }
     });
 
     // Send a ping to confirm a successful connection
